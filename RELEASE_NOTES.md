@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## Version 3.10.0 (2026-10-17)
 
 ### Highlights
 - 34 new tools cover the AFFiNE GraphQL operations this server did not reach: workspace members and invite links, per-document roles, comment replies, workspace MCP credentials, embedding ignore-lists, server administration, and a guarded raw GraphQL tool.
