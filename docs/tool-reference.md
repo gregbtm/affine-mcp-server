@@ -296,6 +296,61 @@ When the new block is a frame/note/edgeless_text on the canvas, `append_block` a
 
 Plain strings and legacy `{ text: "..." }` comment objects are converted to BlockSuite snapshots so AFFiNE can render them. Native `{ snapshot, attachments?, mode?, preview? }` payloads retain their rich content. Malformed snapshot payloads are rejected before mutation.
 
+## Members, sharing and replies
+
+| Tool | Purpose | Notes |
+| --- | --- | --- |
+| `list_workspace_members` | List members with role and status | Filter with `query`; page with `skip`/`take` |
+| `invite_members` | Invite people by email | Returns one result per address, with an error object for failures |
+| `approve_member` | Approve a member waiting for review | |
+| `set_member_role` | Change a member's role to `Admin` or `Collaborator` | |
+| `remove_member` | Remove a member or cancel an invitation | Destructive; `confirmUserId` must equal `userId` |
+| `get_invite_link` | Read the current invite link | `null` when none exists |
+| `create_invite_link` | Create a shareable invite link | The URL is a credential; replaces any existing link |
+| `revoke_invite_link` | Invalidate the invite link | Destructive; existing members keep access |
+| `list_doc_roles` | Show per-user roles and the default role on a document | |
+| `grant_doc_user_roles` | Give several users the same role on a document | |
+| `update_doc_user_role` | Change one user's role on a document | |
+| `revoke_doc_user_role` | Remove one user's explicit role | Destructive; the user falls back to the default role |
+| `set_doc_default_role` | Set the role other workspace members get | `None` makes the document private to explicit roles |
+| `create_reply` | Reply to a comment thread | Same content format as `create_comment` |
+| `update_reply` | Edit a reply | |
+| `delete_reply` | Delete a reply | Destructive; `confirmReplyId` must equal `replyId` |
+| `set_embedding_ignored_docs` | Exclude documents from, or restore them to, AI embeddings | |
+
+## Workspace MCP credentials
+
+AFFiNE's own built-in MCP endpoint accepts per-workspace credentials. These tools manage them; they do not authenticate this server.
+
+| Tool | Purpose | Notes |
+| --- | --- | --- |
+| `list_mcp_credentials` | List credentials | Fingerprint, mode, status and expiry only; never the token |
+| `create_mcp_credential` | Mint a credential | The token is returned once and is a secret |
+| `rotate_mcp_credential` | Issue a replacement token | Old token works until `graceEndsAt` |
+| `revoke_mcp_credential` | Revoke a credential | Destructive; `confirmCredentialId` must equal `credentialId` |
+
+## Server administration and raw GraphQL
+
+These tools need the signed-in account to hold the server **Admin** role; otherwise AFFiNE answers `access_denied`. They are in the `admin` group, so `AFFINE_TOOL_PROFILE=authoring` and `AFFINE_DISABLED_GROUPS=admin` remove them. Use `AFFINE_DISABLED_GROUPS=server` to remove only these server-level tools.
+
+| Tool | Purpose | Notes |
+| --- | --- | --- |
+| `admin_dashboard` | Server-wide metrics | |
+| `admin_list_workspaces` | List every workspace on the server | Includes owner, sizes and feature flags |
+| `admin_get_workspace` | One workspace in admin detail | Includes members |
+| `list_users` | List accounts | |
+| `get_user` | Look up an account by exact email | |
+| `create_user` | Create an account | |
+| `update_user` | Change an account's name or email | |
+| `set_user_disabled` | Disable or re-enable an account | `confirmUserId` required when disabling |
+| `delete_user` | Permanently delete an account | Destructive; `confirmUserId` must equal `userId` |
+| `get_app_config` | Read the effective server configuration | Secrets are masked by AFFiNE |
+| `validate_app_config` | Dry-run configuration changes | |
+| `update_app_config` | Change one configuration value | Destructive; `confirmKey` must equal `<module>.<key>` |
+| `graphql_execute` | Run any GraphQL document | Queries run freely; a document containing `mutation` or `subscription` is refused unless `allowMutation: true` |
+
+Every typed operation above is validated against AFFiNE's `schema.gql` by `tests/test-graphql-operations.mjs`, using a vendored copy at `tests/fixtures/affine-schema.gql` (see its header for the AFFiNE commit). `graphql_execute` is the escape hatch for operations without a typed tool; discover them with `{ __schema { mutationType { fields { name } } } }`.
+
 ## Version History
 
 | Tool | Purpose | Notes |

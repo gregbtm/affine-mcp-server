@@ -10,6 +10,7 @@ import { registerCommentTools } from "./tools/comments.js";
 import { registerHistoryTools } from "./tools/history.js";
 import { registerUserTools } from "./tools/user.js";
 import { registerUserCRUDTools } from "./tools/userCRUD.js";
+import { registerAccessAdminTools } from "./tools/accessAdmin.js";
 import { registerBlobTools } from "./tools/blobStorage.js";
 import { registerNotificationTools } from "./tools/notifications.js";
 import { AuthSession, parseLoginMode } from "./authSession.js";
@@ -198,6 +199,7 @@ async function buildServer() {
   registerIconTools(server, gql, { workspaceId: config.defaultWorkspaceId });
   registerUserTools(server, gql);
   registerUserCRUDTools(server, gql);
+  registerAccessAdminTools(server, gql, { workspaceId: config.defaultWorkspaceId });
   if (config.authMode !== "oauth") {
     registerAuthTools(server, gql, config.baseUrl);
   }
