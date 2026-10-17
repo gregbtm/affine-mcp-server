@@ -1,5 +1,26 @@
 # Release Notes
 
+## Version 3.10.0 (2026-10-17)
+
+### Highlights
+- 34 new tools cover the AFFiNE GraphQL operations this server did not reach: workspace members and invite links, per-document roles, comment replies, workspace MCP credentials, embedding ignore-lists, server administration, and a guarded raw GraphQL tool.
+
+### What Changed
+- Add `list_workspace_members`, `invite_members`, `approve_member`, `set_member_role`, `remove_member`, `get_invite_link`, `create_invite_link`, `revoke_invite_link`.
+- Add `list_doc_roles`, `grant_doc_user_roles`, `update_doc_user_role`, `revoke_doc_user_role`, `set_doc_default_role`.
+- Add `create_reply`, `update_reply`, `delete_reply`, and `set_embedding_ignored_docs`.
+- Add `list_mcp_credentials`, `create_mcp_credential`, `rotate_mcp_credential`, `revoke_mcp_credential`.
+- Add server-admin tools `admin_dashboard`, `admin_list_workspaces`, `admin_get_workspace`, `list_users`, `get_user`, `create_user`, `update_user`, `set_user_disabled`, `delete_user`, `get_app_config`, `validate_app_config`, `update_app_config`.
+- Add `graphql_execute`. A document containing `mutation` or `subscription` is refused unless `allowMutation: true`.
+- Destructive tools require a confirmation argument that must equal the target id, as `delete_workspace` already does.
+- Add `tests/test-graphql-operations.mjs`, which validates every new operation document against a vendored copy of AFFiNE's `schema.gql` and proves the validator rejects bad documents.
+
+### Compatibility
+- The canonical MCP surface grows from 107 to 141 tools. Existing tool names, inputs, and outputs are unchanged.
+- New tools sit in the `workspaces.members`, `workspaces.credentials`, `docs.share`, `comments` and `server` groups. Server-level tools, `graphql_execute` and credential tools are also in `admin`, so the `authoring` profile and `AFFINE_DISABLED_GROUPS=admin` exclude them. `graphql_execute` is also `destructive` and `raw`.
+- Server administration needs the Admin role on the AFFiNE account; without it AFFiNE answers `access_denied`.
+- Validated against the AFFiNE 0.27.5 schema (canary, 2026-10-11). No live run against a deployment has been done for these tools yet.
+
 ## Version 3.9.1 (2026-10-12)
 
 ### Highlights

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.0] - 2026-10-17
+
+### Added
+- 34 tools for AFFiNE operations the server did not reach: workspace members and invite links (`list_workspace_members`, `invite_members`, `approve_member`, `set_member_role`, `remove_member`, `get_invite_link`, `create_invite_link`, `revoke_invite_link`), per-document roles (`list_doc_roles`, `grant_doc_user_roles`, `update_doc_user_role`, `revoke_doc_user_role`, `set_doc_default_role`), comment replies (`create_reply`, `update_reply`, `delete_reply`), `set_embedding_ignored_docs`, workspace MCP credentials (`list_mcp_credentials`, `create_mcp_credential`, `rotate_mcp_credential`, `revoke_mcp_credential`), server administration (`admin_dashboard`, `admin_list_workspaces`, `admin_get_workspace`, `list_users`, `get_user`, `create_user`, `update_user`, `set_user_disabled`, `delete_user`, `get_app_config`, `validate_app_config`, `update_app_config`), and `graphql_execute`.
+
+### Security
+- Destructive new tools require a confirmation argument equal to the target id. `graphql_execute` refuses `mutation` and `subscription` documents unless `allowMutation` is true. Admin, credential and raw tools are excluded by the `authoring` profile and `AFFINE_DISABLED_GROUPS=admin`.
+
+### Tests
+- `tests/test-graphql-operations.mjs` validates every new operation document against a vendored AFFiNE `schema.gql` and checks the confirmation and mutation gates.
+
 ## [3.9.1] - 2026-10-12
 
 ### Fixed
@@ -913,6 +924,7 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 - User management
 - Access tokens
 
+[3.10.0]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.10.0
 [3.9.1]: https://github.com/DAWNCR0W/affine-mcp-server/releases/tag/v3.9.1
 [3.9.0]: https://github.com/DAWNCR0W/affine-mcp-server/releases/tag/v3.9.0
 [3.8.5]: https://github.com/DAWNCR0W/affine-mcp-server/releases/tag/v3.8.5
