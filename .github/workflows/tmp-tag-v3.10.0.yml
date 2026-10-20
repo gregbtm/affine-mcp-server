@@ -1,0 +1,50 @@
+name: tmp-tag-v3.10.0
+
+# One-off: create the annotated v3.10.0 tag on the merged release commit, then
+# dispatch docker.yml for it. Exists only on branch tmp/tag-v3.10.0.
+on:
+  push:
+    branches:
+      - tmp/tag-v3.10.0
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: v3.10.0
+      EXPECTED_COMMIT: 524163a2aa6b2843ebd8f724cc5bbf31def6a350
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Create annotated tag on the expected main commit
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          MAIN_SHA="$(git rev-parse origin/main)"
+          if [ "$MAIN_SHA" != "$EXPECTED_COMMIT" ]; then
+            echo "main is $MAIN_SHA, expected $EXPECTED_COMMIT; refusing to tag"
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "$TAG already exists on the remote; not recreating"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" "$EXPECTED_COMMIT" -m "v3.10.0: 34 new tools for members, sharing, replies, MCP credentials, admin and raw GraphQL"
+            git push origin "refs/tags/$TAG"
+          fi
+          git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}"
+
+      - name: Dispatch the release build
+        run: |
+          set -euo pipefail
+          gh workflow run docker.yml --ref main -f release_ref="$TAG"
+          echo "dispatched docker.yml for $TAG"
