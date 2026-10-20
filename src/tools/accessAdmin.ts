@@ -4,6 +4,7 @@ import { GraphQLClient } from "../graphqlClient.js";
 import { text, toolError } from "../util/mcp.js";
 import { normalizeCommentContent } from "../util/commentContent.js";
 import { BoundedOffset, BoundedPageSize, requireMatchingConfirmation } from "../util/inputSchemas.js";
+import { redactConfig } from "../util/redactConfig.js";
 
 /**
  * Typed wrappers for AFFiNE GraphQL operations the rest of this server does not
@@ -57,7 +58,10 @@ export const OPERATIONS = {
   banUser: `mutation BanUser($id:String!){ banUser(id:$id){ id email disabled } }`,
   enableUser: `mutation EnableUser($id:String!){ enableUser(id:$id){ id email disabled } }`,
   deleteUser: `mutation DeleteUser($id:String!){ deleteUser(id:$id){ success } }`,
-  getAppConfig: `query GetAppConfig{ appConfig appConfigMetadata }`,
+  // appConfigMetadata only exists on newer AFFiNE builds (canary 0.27.5); the stable 0.27.4 image rejects
+  // any document that names it, so it is fetched separately and its absence is tolerated.
+  getAppConfig: `query GetAppConfig{ appConfig }`,
+  getAppConfigMetadata: `query GetAppConfigMetadata{ appConfigMetadata }`,
   validateAppConfig: `query ValidateAppConfig($updates:[UpdateAppConfigInput!]!){ validateAppConfig(updates:$updates){ module key valid error value } }`,
   updateAppConfig: `mutation UpdateAppConfig($updates:[UpdateAppConfigInput!]!){ updateAppConfig(updates:$updates) }`,
 } as const;
@@ -552,12 +556,23 @@ export function registerAccessAdminTools(server: McpServer, gql: GraphQLClient, 
     "get_app_config",
     {
       title: "Get App Config",
-      description: "Read the server's effective configuration and where each value comes from. Secret values are masked by AFFiNE. Requires the server Admin role.",
+      description: "Read the server's effective configuration. Secret values (passwords, tokens, private keys, credentials inside URLs) are redacted by this server, because AFFiNE self-hosted does not mask them. includeMetadata adds value sources and is only available on AFFiNE builds that expose appConfigMetadata. Requires the server Admin role.",
       inputSchema: { includeMetadata: z.boolean().optional().describe("Also return value sources and secret status (larger).") },
     },
     wrap("get_app_config_failed", async (a: { includeMetadata?: boolean }) => {
-      const data = await gql.request<{ appConfig: unknown; appConfigMetadata: unknown }>(OPERATIONS.getAppConfig, {});
-      return { config: data.appConfig, ...(a.includeMetadata ? { metadata: data.appConfigMetadata } : {}) };
+      const data = await gql.request<{ appConfig: unknown }>(OPERATIONS.getAppConfig, {});
+      const result: Record<string, unknown> = { config: redactConfig(data.appConfig) };
+      if (a.includeMetadata) {
+        try {
+          const meta = await gql.request<{ appConfigMetadata: unknown }>(OPERATIONS.getAppConfigMetadata, {});
+          result.metadata = redactConfig(meta.appConfigMetadata);
+        } catch (error: any) {
+          if (!/Cannot query field "appConfigMetadata"/.test(String(error?.message ?? error))) throw error;
+          result.metadata = null;
+          result.metadataUnavailable = "This AFFiNE server does not expose appConfigMetadata (it is missing on stable 0.27.4).";
+        }
+      }
+      return result;
     }) as any,
   );
 
