@@ -952,6 +952,7 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 - User management
 - Access tokens
 
+[3.11.0]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.11.0
 [3.10.2]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v3.10.2
 [3.10.1]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v3.10.1
 [3.10.0]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.10.0
@@ -1003,4 +1004,4 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 [1.4.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.4.0
 [1.3.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.3.0
 [1.6.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.6.0
-[Unreleased]: https://github.com/dawncr0w/affine-mcp-server/compare/v3.10.2...HEAD
+[Unreleased]: https://github.com/gregbtm/affine-mcp-server/compare/v3.11.0...HEAD
