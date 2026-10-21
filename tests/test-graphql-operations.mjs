@@ -179,8 +179,28 @@ const [ct4, st4] = InMemoryTransport.createLinkedPair();
 await Promise.all([brokenServer.connect(st4), c4.connect(ct4)]);
 assert.equal((await c4.callTool({ name: "get_app_config", arguments: { includeMetadata: true } })).isError, true, "unrelated metadata errors must not be swallowed");
 
+// Self-hosted AFFiNE rejects the admin dashboard/workspace queries with a bare
+// "Resource not found" (assertCloudOnly). The tools must say why.
+const cloudOnlyGql = { request: async (q) => { if (/adminDashboard|adminWorkspace/.test(q)) throw new Error("GraphQL error: Resource not found."); throw new Error("boom"); } };
+const cloudServer = new McpServer({ name: "t5", version: "0" });
+registerAccessAdminTools(cloudServer, cloudOnlyGql, {});
+const c5 = new Client({ name: "c5", version: "0" });
+const [ct5, st5] = InMemoryTransport.createLinkedPair();
+await Promise.all([cloudServer.connect(st5), c5.connect(ct5)]);
+for (const [name, args] of [["admin_dashboard", {}], ["admin_list_workspaces", {}], ["admin_get_workspace", { workspaceId: "w" }]]) {
+  const res = await c5.callTool({ name, arguments: args });
+  assert.equal(res.isError, true, `${name} must still fail on a self-hosted server`);
+  assert.match(JSON.stringify(res), /cloud-only/, `${name} must explain the cloud-only restriction`);
+  assert.match(JSON.stringify(res), /Resource not found/, `${name} must keep the original server error`);
+}
+// An unrelated failure is not relabelled as cloud-only.
+const other = await c5.callTool({ name: "list_users", arguments: {} });
+assert.equal(other.isError, true);
+assert.doesNotMatch(JSON.stringify(other), /cloud-only/, "unrelated errors must not be called cloud-only");
+
 console.log(`graphql operations ok: ${entries.length} documents validated, safety rules enforced`);
 await client.close();
 await c2.close();
 await c3.close();
 await c4.close();
+await c5.close();
