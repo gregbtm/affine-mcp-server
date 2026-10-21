@@ -169,6 +169,9 @@ async function createRealtimeFixture({ workspaceId = "workspace-ux", rootSnapsho
     setRootSnapshot(snapshot) {
       currentRootSnapshot = snapshot;
     },
+    currentRootSnapshot() {
+      return currentRootSnapshot;
+    },
     setDocumentSnapshot(docId, snapshot) {
       documentSnapshots.set(docId, snapshot);
     },
@@ -250,6 +253,102 @@ async function testUpdateDocTitleRejectsMissingDoc() {
       /Document ghost is not present in workspace workspace-ux/,
       "update_doc_title must not report success for a doc that does not exist",
     );
+  } finally {
+    await fixture.close();
+  }
+}
+
+function encodeContentDoc(title) {
+  const doc = new Y.Doc();
+  try {
+    const blocks = doc.getMap("blocks");
+    const page = new Y.Map();
+    page.set("sys:id", "page-block");
+    page.set("sys:flavour", "affine:page");
+    const titleText = new Y.Text();
+    titleText.insert(0, title);
+    page.set("prop:title", titleText);
+    page.set("sys:children", new Y.Array());
+    blocks.set("page-block", page);
+    return Buffer.from(Y.encodeStateAsUpdate(doc)).toString("base64");
+  } finally { doc.destroy(); }
+}
+
+function rootPageIds(snapshot) {
+  const doc = new Y.Doc();
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshot, "base64"));
+    const pages = doc.getMap("meta").get("pages");
+    return pages ? pages.toArray().map(page => page.get("id")) : [];
+  } finally { doc.destroy(); }
+}
+
+async function testRegisterDocMetadata() {
+  const fixture = await createRealtimeFixture({
+    rootSnapshot: encodeWorkspaceRoot([{ id: "doc-1", title: "Registered" }]),
+  });
+  const orphanContent = encodeContentDoc("Orphan title");
+  fixture.setDocumentSnapshot("orphan-1", orphanContent);
+  fixture.setDocumentSnapshot("orphan-2", encodeContentDoc(""));
+  fixture.setDocumentSnapshot("doc-1", encodeContentDoc("Registered"));
+  try {
+    const { handler, definition } = fixture.registry.tools.get("register_doc_metadata");
+    assert.equal(definition.inputSchema.docIds.safeParse([]).success, false, "docIds must be non-empty");
+    assert.equal(definition.inputSchema.docIds.safeParse(Array.from({ length: 101 }, (_, i) => `d${i}`)).success, false, "docIds is capped at 100");
+
+    // Before: the metadata guard refuses the orphan.
+    await assert.rejects(
+      fixture.registry.tools.get("update_doc_title").handler({ workspaceId: "workspace-ux", docId: "orphan-1", title: "x" }),
+      /not present in workspace/,
+    );
+
+    // Dry run: reports, writes nothing.
+    const pushesBeforeDry = fixture.pushCount;
+    const dry = parseResult(await handler({ workspaceId: "workspace-ux", docIds: ["orphan-1", "orphan-2", "ghost", "doc-1"], dryRun: true }));
+    assert.equal(dry.dryRun, true);
+    assert.equal(dry.wouldRegister, 2);
+    assert.equal(dry.noContent, 1);
+    assert.equal(dry.alreadyRegistered, 1);
+    assert.equal(fixture.pushCount, pushesBeforeDry, "dryRun must not push");
+
+    // Real run.
+    const result = parseResult(await handler({ workspaceId: "workspace-ux", docIds: ["orphan-1", "orphan-2", "ghost", "doc-1", "orphan-1"] }));
+    assert.equal(result.requested, 4, "duplicate ids are collapsed");
+    assert.equal(result.registered, 2);
+    assert.equal(result.noContent, 1);
+    assert.equal(result.alreadyRegistered, 1);
+    assert.equal(result.verifyFailed, 0);
+    assert.deepEqual(result.docs.find(d => d.docId === "orphan-1").title, "Orphan title");
+    assert.deepEqual(result.docs.find(d => d.docId === "orphan-2").title, "Untitled");
+    const ids = rootPageIds(fixture.currentRootSnapshot());
+    assert.deepEqual([...ids].sort(), ["doc-1", "orphan-1", "orphan-2"], "ghost must not be registered");
+    assert.equal(fixture.documentSnapshot("orphan-1"), orphanContent, "document content must be byte-identical");
+
+    // After: the guard now accepts the doc, and discovery finds it.
+    const found = parseResult(await fixture.registry.tools.get("find_doc_by_title").handler({ workspaceId: "workspace-ux", title: "Orphan title" }));
+    assert.equal(found.matches.length, 1);
+
+    // Idempotent re-run.
+    const pushesBeforeRetry = fixture.pushCount;
+    const again = parseResult(await handler({ workspaceId: "workspace-ux", docIds: ["orphan-1", "orphan-2"] }));
+    assert.equal(again.registered, 0);
+    assert.equal(again.alreadyRegistered, 2);
+    assert.equal(fixture.pushCount, pushesBeforeRetry, "re-running must not push");
+  } finally {
+    await fixture.close();
+  }
+}
+
+async function testRegisterDocMetadataReportsFailedVerify() {
+  const fixture = await createRealtimeFixture({
+    rootSnapshot: encodeWorkspaceRoot([{ id: "doc-1", title: "Registered" }]),
+  });
+  fixture.setDocumentSnapshot("orphan-1", encodeContentDoc("Orphan title"));
+  fixture.setPushSnapshotOverride(encodeWorkspaceRoot([{ id: "doc-1", title: "Registered" }]));
+  try {
+    const result = parseResult(await fixture.registry.tools.get("register_doc_metadata").handler({ workspaceId: "workspace-ux", docIds: ["orphan-1"] }));
+    assert.equal(result.registered, 0);
+    assert.equal(result.verifyFailed, 1, "a push that does not land must be reported, not claimed");
   } finally {
     await fixture.close();
   }
@@ -648,6 +747,8 @@ async function testDatabaseRowCreators() {
 await testDatabaseRowCreators();
 await testMissingAndEmptyWorkspaceRoots();
 await testUpdateDocTitleRejectsMissingDoc();
+await testRegisterDocMetadata();
+await testRegisterDocMetadataReportsFailedVerify();
 await testDocPropertyToolsRejectMissingDoc();
 await testCheckboxPropertyRejectsUnrecognizedValues();
 await testNativeJournalRoundTrip();

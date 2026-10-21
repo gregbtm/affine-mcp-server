@@ -141,6 +141,7 @@ check.
 | `move_doc` | Move a document in the sidebar by relinking it under another parent | Validates resources and cycles, adds the destination first, avoids duplicate links, and reports partial source-removal failures |
 | `trash_doc` | Move a document to the AFFiNE trash | Recoverable with `restore_doc`; preserves document content and is safe to retry |
 | `restore_doc` | Restore a document from the AFFiNE trash | Preserves document content and is safe to retry |
+| `register_doc_metadata` | Add missing workspace-metadata entries for docs that have content but are absent from the sidebar and from metadata-guarded tools | Never edits document content; skips ids with no stored content; verifies by read-back; `dryRun` previews; max 100 ids per call; safe to retry |
 | `delete_doc` | Delete a document | WebSocket-backed and destructive; `confirmDocId` must exactly match `docId`, and metadata removal plus acknowledged or verified content deletion are reported separately |
 
 Use `create_doc_from_markdown` when the initial content contains headings, lists,

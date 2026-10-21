@@ -1,5 +1,17 @@
 # Release Notes
 
+## Version 3.11.0 (2026-10-21)
+
+### Highlights
+- New tool `register_doc_metadata` restores documents that exist in storage but are missing from the workspace metadata, without touching their content.
+
+### What Changed
+- Adds `register_doc_metadata` (`docIds` up to 100, optional `dryRun`). It registers each document under the title stored in its own page block, skips ids with no content, leaves registered ids alone, and verifies each registration by reading the workspace root back.
+
+### Compatibility
+- Additive: no existing tool name or input changes. The tool joins the `docs`, `docs.write` and `write` groups, so read-only profiles do not expose it.
+- Registered documents get `createDate` and `updatedDate` set to the registration time because the original timestamps are not recoverable from the metadata.
+
 ## Version 3.10.2 (2026-10-21)
 
 ### Highlights
