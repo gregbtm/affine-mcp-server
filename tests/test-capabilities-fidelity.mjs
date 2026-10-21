@@ -119,7 +119,8 @@ async function main() {
     expectEqual(capabilities?.database?.advancedViewMutation, false, 'advancedViewMutation flag');
     expectEqual(capabilities?.workspace?.ruleBackedCollections, true, 'ruleBackedCollections flag');
     expectEqual(capabilities?.workspace?.workspaceBlueprints, true, 'workspaceBlueprints flag');
-    expectEqual(capabilities?.collaboration?.replyCreation, false, 'replyCreation flag');
+    expectEqual(capabilities?.collaboration?.replyCreation, true, 'replyCreation flag');
+    expectEqual(capabilities?.collaboration?.sharePolicyManagement, true, 'sharePolicyManagement flag');
 
     const workspace = await call('create_workspace', { name: testResourceName('cap-fidelity') });
     const workspaceId = workspace?.id;

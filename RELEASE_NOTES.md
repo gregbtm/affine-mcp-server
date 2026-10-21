@@ -1,5 +1,52 @@
 # Release Notes
 
+## Version 3.10.2 (2026-10-21)
+
+### Highlights
+- The admin dashboard and admin workspace tools now say that they are cloud-only on self-hosted AFFiNE, and `get_capabilities` reports reply creation and share-policy management correctly.
+
+### What Changed
+- `admin_dashboard`, `admin_list_workspaces` and `admin_get_workspace` rewrite AFFiNE's bare "Resource not found" into an explanation that these queries are cloud-only, keeping the original message and pointing to `list_workspaces`, `list_workspace_members` and `list_users`.
+- `get_capabilities` reports `collaboration.replyCreation` and `collaboration.sharePolicyManagement` as true.
+
+### Compatibility
+- No tool names or inputs change. The three admin tools still fail on self-hosted servers; only the error text and descriptions change. `list_users` and the other server-admin tools are not affected.
+- Cause confirmed in AFFiNE's source (`AdminWorkspaceResolver.assertCloudOnly()` throws `NotFoundException` when `env.selfhosted`), read at a canary commit rather than the 0.27.4 tag; the live behaviour on 0.27.4 matches it.
+
+## Version 3.10.1 (2026-10-21)
+
+### Highlights
+- `get_app_config` now works against stable AFFiNE 0.27.4 and no longer returns server secrets in clear text.
+
+### What Changed
+- The default `get_app_config` query asks only for `appConfig`. `appConfigMetadata` exists in the 0.27.5 canary schema but not on 0.27.4, so it is fetched only with `includeMetadata`, and a server that rejects it yields `metadata: null` with `metadataUnavailable` rather than an error.
+- Secret-named keys, credentials embedded in URLs and PEM private keys are replaced with `[redacted]` before the config is returned.
+
+### Compatibility
+- No tool names or inputs change. The `get_app_config` output keeps its `config` field; secret values in it are now redacted.
+- Found by the first live run of the 3.10.0 tools against a self-hosted AFFiNE 0.27.4. `admin_dashboard`, `admin_list_workspaces` and `admin_get_workspace` still answer `Resource not found` there and are not changed by this release.
+
+## Version 3.10.0 (2026-10-17)
+
+### Highlights
+- 34 new tools cover the AFFiNE GraphQL operations this server did not reach: workspace members and invite links, per-document roles, comment replies, workspace MCP credentials, embedding ignore-lists, server administration, and a guarded raw GraphQL tool.
+
+### What Changed
+- Add `list_workspace_members`, `invite_members`, `approve_member`, `set_member_role`, `remove_member`, `get_invite_link`, `create_invite_link`, `revoke_invite_link`.
+- Add `list_doc_roles`, `grant_doc_user_roles`, `update_doc_user_role`, `revoke_doc_user_role`, `set_doc_default_role`.
+- Add `create_reply`, `update_reply`, `delete_reply`, and `set_embedding_ignored_docs`.
+- Add `list_mcp_credentials`, `create_mcp_credential`, `rotate_mcp_credential`, `revoke_mcp_credential`.
+- Add server-admin tools `admin_dashboard`, `admin_list_workspaces`, `admin_get_workspace`, `list_users`, `get_user`, `create_user`, `update_user`, `set_user_disabled`, `delete_user`, `get_app_config`, `validate_app_config`, `update_app_config`.
+- Add `graphql_execute`. A document containing `mutation` or `subscription` is refused unless `allowMutation: true`.
+- Destructive tools require a confirmation argument that must equal the target id, as `delete_workspace` already does.
+- Add `tests/test-graphql-operations.mjs`, which validates every new operation document against a vendored copy of AFFiNE's `schema.gql` and proves the validator rejects bad documents.
+
+### Compatibility
+- The canonical MCP surface grows from 107 to 141 tools. Existing tool names, inputs, and outputs are unchanged.
+- New tools sit in the `workspaces.members`, `workspaces.credentials`, `docs.share`, `comments` and `server` groups. Server-level tools, `graphql_execute` and credential tools are also in `admin`, so the `authoring` profile and `AFFINE_DISABLED_GROUPS=admin` exclude them. `graphql_execute` is also `destructive` and `raw`.
+- Server administration needs the Admin role on the AFFiNE account; without it AFFiNE answers `access_denied`.
+- Validated against the AFFiNE 0.27.5 schema (canary, 2026-10-11). No live run against a deployment has been done for these tools yet.
+
 ## Version 3.9.1 (2026-10-12)
 
 ### Highlights

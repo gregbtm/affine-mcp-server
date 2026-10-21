@@ -6285,10 +6285,10 @@ export function registerDocTools(
       collaboration: {
         docComments: true,
         repliesListed: true,
-        replyCreation: false,
+        replyCreation: true,
         anchoredComments: false,
         selectionRangeComments: false,
-        sharePolicyManagement: false,
+        sharePolicyManagement: true,
       },
       export: {
         markdown: true,
