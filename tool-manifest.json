@@ -1,5 +1,5 @@
 {
-  "version": "3.10.2",
+  "version": "3.11.0",
   "tools": [
     "add_database_column",
     "add_database_row",
@@ -94,6 +94,7 @@
     "read_database_cells",
     "read_database_columns",
     "read_doc",
+    "register_doc_metadata",
     "remove_doc_from_collection",
     "remove_member",
     "remove_tag_from_doc",

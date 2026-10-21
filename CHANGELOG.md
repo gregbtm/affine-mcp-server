@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.0] - 2026-10-21
+
+### Added
+- `register_doc_metadata` repairs documents that have stored content but no entry in the workspace metadata (`meta.pages`). Such documents are missing from the sidebar, `list_workspace_tree` and `find_doc_by_title`, and `update_doc_title`, `restore_doc` and `list_doc_properties` refuse them with "not present in workspace". The tool appends the missing page entry using each document's own title, skips ids with no stored content so it cannot create ghost entries, leaves already-registered ids alone, reads the workspace root back to verify every registration, and never modifies document content. It takes up to 100 ids per call and has a `dryRun` mode. New entries carry the registration time as `createDate` and `updatedDate`.
+
+### Tests
+- `tests/test-discovery-ux.mjs` covers dry run, registration, byte-identical content, ghost ids, idempotent re-runs and a push that does not land (reported as `verifyFailed`, not claimed as registered).
+
 ## [3.10.2] - 2026-10-21
 
 ### Fixed

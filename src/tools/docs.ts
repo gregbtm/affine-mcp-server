@@ -7468,6 +7468,133 @@ export function registerDocTools(
     setTrashStateHandler(false) as any,
   );
 
+  // REGISTER DOC METADATA
+  // Repairs docs whose content exists but whose entry is missing from the workspace
+  // root `meta.pages` array (so they are absent from the sidebar, list_workspace_tree,
+  // find_doc_by_title, and every tool that guards on metadata presence). It never
+  // edits document content: it only appends a page entry to the workspace root doc.
+  const REGISTER_DOC_METADATA_MAX_DOCS = 100;
+  const registerDocMetadataHandler = async (parsed: {
+    workspaceId?: string;
+    docIds: string[];
+    dryRun?: boolean;
+  }) => {
+    const workspaceId = parsed.workspaceId || defaults.workspaceId;
+    if (!workspaceId) throw new Error("workspaceId is required.");
+    const docIds = Array.from(new Set(parsed.docIds));
+    if (docIds.length === 0) throw new Error("docIds must contain at least one id.");
+    if (docIds.length > REGISTER_DOC_METADATA_MAX_DOCS) {
+      throw new Error(`docIds is limited to ${REGISTER_DOC_METADATA_MAX_DOCS} ids per call.`);
+    }
+    const dryRun = parsed.dryRun === true;
+    const { endpoint, cookie, bearer } = await getCookieAndEndpoint();
+    const wsUrl = wsUrlFromGraphQLEndpoint(endpoint);
+    const socket = await connectWorkspaceSocket(wsUrl, cookie, bearer);
+    try {
+      await joinWorkspace(socket, workspaceId);
+      const wsDoc = await loadWorkspaceMetadataDoc(socket, workspaceId);
+      const wsMeta = wsDoc.getMap("meta");
+      const registered = new Set(getWorkspacePageEntries(wsMeta).map(page => page.id));
+
+      type Outcome = {
+        docId: string;
+        status: "already_registered" | "no_content" | "would_register" | "registered" | "verify_failed";
+        title?: string;
+      };
+      const outcomes: Outcome[] = [];
+      const toRegister: Array<{ docId: string; title: string }> = [];
+
+      for (const docId of docIds) {
+        if (registered.has(docId)) {
+          outcomes.push({ docId, status: "already_registered" });
+          continue;
+        }
+        const snap = await loadDoc(socket, workspaceId, docId);
+        if (typeof snap.missing !== "string") {
+          // Never register an id that has no stored content: that would create a ghost entry.
+          outcomes.push({ docId, status: "no_content" });
+          continue;
+        }
+        const contentDoc = new Y.Doc();
+        Y.applyUpdate(contentDoc, Buffer.from(snap.missing, "base64"));
+        const blocks = contentDoc.getMap("blocks") as Y.Map<any>;
+        let hasPageBlock = false;
+        let title = "";
+        for (const [, raw] of blocks) {
+          if (!(raw instanceof Y.Map)) continue;
+          if (raw.get("sys:flavour") === "affine:page") {
+            hasPageBlock = true;
+            const propTitle = raw.get("prop:title");
+            title = propTitle instanceof Y.Text ? propTitle.toString() : typeof propTitle === "string" ? propTitle : "";
+            break;
+          }
+        }
+        if (!hasPageBlock) {
+          outcomes.push({ docId, status: "no_content" });
+          continue;
+        }
+        const finalTitle = title.trim() || "Untitled";
+        toRegister.push({ docId, title: finalTitle });
+        outcomes.push({ docId, status: dryRun ? "would_register" : "registered", title: finalTitle });
+      }
+
+      if (!dryRun && toRegister.length > 0) {
+        const prevSV = Y.encodeStateVector(wsDoc);
+        let pages = wsMeta.get("pages") as Y.Array<Y.Map<any>> | undefined;
+        if (!pages) {
+          pages = new Y.Array();
+          wsMeta.set("pages", pages);
+        }
+        pages.push(toRegister.map(entry => makeWorkspacePageEntry(entry.docId, entry.title)));
+        const delta = Y.encodeStateAsUpdate(wsDoc, prevSV);
+        await pushDocUpdate(socket, workspaceId, workspaceId, Buffer.from(delta).toString("base64"));
+
+        // Read the workspace root back and confirm every entry is now present.
+        const verifyDoc = await loadWorkspaceMetadataDoc(socket, workspaceId);
+        const nowRegistered = new Set(getWorkspacePageEntries(verifyDoc.getMap("meta")).map(page => page.id));
+        for (const outcome of outcomes) {
+          if (outcome.status === "registered" && !nowRegistered.has(outcome.docId)) {
+            outcome.status = "verify_failed";
+          }
+        }
+      }
+
+      const count = (status: Outcome["status"]) => outcomes.filter(o => o.status === status).length;
+      return receipt("doc.register_metadata", {
+        workspaceId,
+        dryRun,
+        requested: docIds.length,
+        registered: count("registered"),
+        wouldRegister: count("would_register"),
+        alreadyRegistered: count("already_registered"),
+        noContent: count("no_content"),
+        verifyFailed: count("verify_failed"),
+        docs: outcomes,
+      });
+    } finally {
+      socket.disconnect();
+    }
+  };
+  server.registerTool(
+    "register_doc_metadata",
+    {
+      title: "Register Document Metadata",
+      description:
+        "Repair docs that have stored content but no entry in the workspace metadata (they are missing from the sidebar, " +
+        "list_workspace_tree and find_doc_by_title, and update_doc_title / restore_doc / list_doc_properties refuse them with " +
+        "'not present in workspace'). Appends the missing page entry to the workspace root document using each doc's own title; " +
+        "document content is never modified. Ids with no stored content are skipped, ids already registered are left alone, " +
+        "and every registration is read back and verified. Idempotent and safe to retry. Up to 100 ids per call; use dryRun to preview. " +
+        "New entries get createDate/updatedDate set to the registration time.",
+      inputSchema: {
+        workspaceId: WorkspaceId.optional(),
+        docIds: z.array(DocId).min(1).max(REGISTER_DOC_METADATA_MAX_DOCS).describe("Doc ids to register (max 100 per call)."),
+        dryRun: z.boolean().optional().describe("If true, report what would be registered without writing."),
+      },
+    },
+    registerDocMetadataHandler as any
+  );
+
   // DELETE DOC
   const deleteDocHandler = async (parsed: { workspaceId?: string; docId: string; confirmDocId?: string }) => {
     requireMatchingConfirmation("delete_doc", parsed.docId, parsed.confirmDocId);

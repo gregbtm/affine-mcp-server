@@ -92,6 +92,7 @@ export const ALL_TOOLS = [
   "read_database_cells",
   "read_database_columns",
   "read_doc",
+  "register_doc_metadata",
   "remove_doc_from_collection",
   "remove_member",
   "remove_tag_from_doc",
@@ -241,6 +242,7 @@ const TOOL_GROUPS: Record<ToolName, readonly string[]> = {
   set_doc_journal: ["docs", "docs.properties", "docs.write", "write"],
   set_doc_property: ["docs", "docs.properties", "docs.write", "write"],
   sign_in: ["users", "users.auth", "auth", "write"],
+  register_doc_metadata: ["docs", "docs.write", "write"],
   trash_doc: ["docs", "docs.write", "write"],
   update_block: ["docs", "docs.write", "write"],
   update_collection: ["organize", "organize.collections", "organize.write", "write"],
@@ -378,6 +380,7 @@ const AUTHORING_EXCLUDED_GROUPS = new Set([
 ]);
 
 const IDEMPOTENT_WRITE_TOOLS = new Set<ToolName>([
+  "register_doc_metadata",
   "restore_doc",
   "set_doc_journal",
   "trash_doc",
