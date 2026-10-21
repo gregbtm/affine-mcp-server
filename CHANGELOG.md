@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.1] - 2026-10-21
+
+### Fixed
+- `get_app_config` works on stable AFFiNE 0.27.4. The default query no longer requests `appConfigMetadata`, which only the canary schema has; with `includeMetadata` the tool returns `metadata: null` and `metadataUnavailable` when the server rejects that field, and still raises any other error.
+
+### Security
+- `get_app_config` redacts secret-named keys, credentials inside URLs and PEM private keys before returning. Self-hosted AFFiNE returns `appConfig` secrets in clear, so the previous description ("masked by AFFiNE") was wrong.
+
+### Tests
+- `tests/test-graphql-operations.mjs` validates the default document against a schema without `appConfigMetadata`, checks redaction on planted secrets, and runs the tool against a stub that throws the real stable-server error.
+
 ## [3.10.0] - 2026-10-17
 
 ### Added
@@ -924,6 +935,7 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 - User management
 - Access tokens
 
+[3.10.1]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v3.10.1
 [3.10.0]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.10.0
 [3.9.1]: https://github.com/DAWNCR0W/affine-mcp-server/releases/tag/v3.9.1
 [3.9.0]: https://github.com/DAWNCR0W/affine-mcp-server/releases/tag/v3.9.0
@@ -973,4 +985,4 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 [1.4.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.4.0
 [1.3.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.3.0
 [1.6.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.6.0
-[Unreleased]: https://github.com/dawncr0w/affine-mcp-server/compare/v3.9.1...HEAD
+[Unreleased]: https://github.com/dawncr0w/affine-mcp-server/compare/v3.10.1...HEAD
