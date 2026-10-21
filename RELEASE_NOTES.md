@@ -1,5 +1,18 @@
 # Release Notes
 
+## Version 3.10.1 (2026-10-21)
+
+### Highlights
+- `get_app_config` now works against stable AFFiNE 0.27.4 and no longer returns server secrets in clear text.
+
+### What Changed
+- The default `get_app_config` query asks only for `appConfig`. `appConfigMetadata` exists in the 0.27.5 canary schema but not on 0.27.4, so it is fetched only with `includeMetadata`, and a server that rejects it yields `metadata: null` with `metadataUnavailable` rather than an error.
+- Secret-named keys, credentials embedded in URLs and PEM private keys are replaced with `[redacted]` before the config is returned.
+
+### Compatibility
+- No tool names or inputs change. The `get_app_config` output keeps its `config` field; secret values in it are now redacted.
+- Found by the first live run of the 3.10.0 tools against a self-hosted AFFiNE 0.27.4. `admin_dashboard`, `admin_list_workspaces` and `admin_get_workspace` still answer `Resource not found` there and are not changed by this release.
+
 ## Version 3.10.0 (2026-10-17)
 
 ### Highlights
