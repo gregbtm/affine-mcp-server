@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.2] - 2026-10-21
+
+### Fixed
+- `get_capabilities` now reports `collaboration.replyCreation` and `collaboration.sharePolicyManagement` as true; `create_reply` and the document-role tools exist since 3.10.0.
+- `admin_dashboard`, `admin_list_workspaces` and `admin_get_workspace` explain why they fail on a self-hosted server. AFFiNE's admin dashboard and admin workspace resolvers are cloud-only and answer a bare "Resource not found" before the Admin role is checked; the error now says so and points to `list_workspaces`, `list_workspace_members` and `list_users`. The original server message is kept. Tool descriptions state the restriction.
+
+### Tests
+- `tests/test-graphql-operations.mjs` checks the cloud-only explanation for all three tools and that an unrelated error is not relabelled.
+
 ## [3.10.1] - 2026-10-21
 
 ### Fixed
@@ -935,6 +944,7 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 - User management
 - Access tokens
 
+[3.10.2]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v3.10.2
 [3.10.1]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v3.10.1
 [3.10.0]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.10.0
 [3.9.1]: https://github.com/DAWNCR0W/affine-mcp-server/releases/tag/v3.9.1
@@ -985,4 +995,4 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 [1.4.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.4.0
 [1.3.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.3.0
 [1.6.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.6.0
-[Unreleased]: https://github.com/dawncr0w/affine-mcp-server/compare/v3.10.1...HEAD
+[Unreleased]: https://github.com/dawncr0w/affine-mcp-server/compare/v3.10.2...HEAD

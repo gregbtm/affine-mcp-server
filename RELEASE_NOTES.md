@@ -1,5 +1,18 @@
 # Release Notes
 
+## Version 3.10.2 (2026-10-21)
+
+### Highlights
+- The admin dashboard and admin workspace tools now say that they are cloud-only on self-hosted AFFiNE, and `get_capabilities` reports reply creation and share-policy management correctly.
+
+### What Changed
+- `admin_dashboard`, `admin_list_workspaces` and `admin_get_workspace` rewrite AFFiNE's bare "Resource not found" into an explanation that these queries are cloud-only, keeping the original message and pointing to `list_workspaces`, `list_workspace_members` and `list_users`.
+- `get_capabilities` reports `collaboration.replyCreation` and `collaboration.sharePolicyManagement` as true.
+
+### Compatibility
+- No tool names or inputs change. The three admin tools still fail on self-hosted servers; only the error text and descriptions change. `list_users` and the other server-admin tools are not affected.
+- Cause confirmed in AFFiNE's source (`AdminWorkspaceResolver.assertCloudOnly()` throws `NotFoundException` when `env.selfhosted`), read at a canary commit rather than the 0.27.4 tag; the live behaviour on 0.27.4 matches it.
+
 ## Version 3.10.1 (2026-10-21)
 
 ### Highlights

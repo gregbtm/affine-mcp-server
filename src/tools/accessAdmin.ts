@@ -93,6 +93,20 @@ export function registerAccessAdminTools(server: McpServer, gql: GraphQLClient, 
         return toolError(error, { code });
       }
     };
+  // AFFiNE's admin dashboard and admin workspace resolvers start with
+  // `assertCloudOnly()`, which throws NotFoundException on self-hosted servers
+  // before the Admin role is checked. The client only sees "Resource not found".
+  const cloudOnly = async <T>(request: Promise<T>): Promise<T> => {
+    try {
+      return await request;
+    } catch (error: any) {
+      const message = String(error?.message ?? error);
+      if (/resource not found/i.test(message)) {
+        throw new Error(`${message} AFFiNE's admin dashboard and admin workspace queries are cloud-only: a self-hosted server answers "Resource not found" to them even for an Admin account. Use list_workspaces, list_workspace_members and list_users instead.`);
+      }
+      throw error;
+    }
+  };
   const confirmed = (what: string) => z.string().describe(`Must exactly match ${what} to confirm this destructive action.`);
   const done = (ok: boolean, what: string, extra: Record<string, unknown> = {}) => {
     if (!ok) throw new Error(`AFFiNE did not confirm ${what}.`);
@@ -428,7 +442,7 @@ export function registerAccessAdminTools(server: McpServer, gql: GraphQLClient, 
     "admin_dashboard",
     {
       title: "Admin Dashboard",
-      description: "Server-wide metrics for the AFFiNE admin panel: active sync users, copilot conversations, storage. Requires the server Admin role.",
+      description: "Server-wide metrics for the AFFiNE admin panel: active sync users, copilot conversations, storage. Requires the server Admin role. Cloud-only: a self-hosted AFFiNE answers \"Resource not found\".",
       inputSchema: {
         timezone: z.string().optional().describe("IANA timezone for day buckets. Defaults to UTC."),
         storageHistoryDays: z.number().int().min(1).max(365).optional(),
@@ -436,7 +450,7 @@ export function registerAccessAdminTools(server: McpServer, gql: GraphQLClient, 
     },
     wrap("admin_dashboard_failed", async (a: { timezone?: string; storageHistoryDays?: number }) => {
       const input = { timezone: a.timezone, storageHistoryDays: a.storageHistoryDays };
-      const data = await gql.request<{ adminDashboard: any }>(OPERATIONS.adminDashboard, { input });
+      const data = await cloudOnly(gql.request<{ adminDashboard: any }>(OPERATIONS.adminDashboard, { input }));
       return { dashboard: data.adminDashboard };
     }) as any,
   );
@@ -445,12 +459,12 @@ export function registerAccessAdminTools(server: McpServer, gql: GraphQLClient, 
     "admin_list_workspaces",
     {
       title: "Admin List Workspaces",
-      description: "List every workspace on the server with owner, sizes and feature flags. Requires the server Admin role.",
+      description: "List every workspace on the server with owner, sizes and feature flags. Requires the server Admin role. Cloud-only: a self-hosted AFFiNE answers \"Resource not found\"; use list_workspaces instead.",
       inputSchema: { keyword: z.string().optional(), first: PageSize, skip: Offset },
     },
     wrap("admin_list_workspaces_failed", async (a: { keyword?: string; first?: number; skip?: number }) => {
       const filter = { keyword: a.keyword, first: a.first ?? 20, skip: a.skip ?? 0 };
-      const data = await gql.request<{ adminWorkspacesCount: number; adminWorkspaces: any[] }>(OPERATIONS.adminWorkspaces, { filter });
+      const data = await cloudOnly(gql.request<{ adminWorkspacesCount: number; adminWorkspaces: any[] }>(OPERATIONS.adminWorkspaces, { filter }));
       return { totalCount: data.adminWorkspacesCount, items: data.adminWorkspaces };
     }) as any,
   );
@@ -459,11 +473,11 @@ export function registerAccessAdminTools(server: McpServer, gql: GraphQLClient, 
     "admin_get_workspace",
     {
       title: "Admin Get Workspace",
-      description: "One workspace in admin detail, including its members. Requires the server Admin role.",
+      description: "One workspace in admin detail, including its members. Requires the server Admin role. Cloud-only: a self-hosted AFFiNE answers \"Resource not found\"; use get_workspace and list_workspace_members instead.",
       inputSchema: { workspaceId: z.string(), memberLimit: PageSize },
     },
     wrap("admin_get_workspace_failed", async (a: { workspaceId: string; memberLimit?: number }) => {
-      const data = await gql.request<{ adminWorkspace: any }>(OPERATIONS.adminWorkspace, { id: a.workspaceId, take: a.memberLimit });
+      const data = await cloudOnly(gql.request<{ adminWorkspace: any }>(OPERATIONS.adminWorkspace, { id: a.workspaceId, take: a.memberLimit }));
       return { workspace: data.adminWorkspace };
     }) as any,
   );
