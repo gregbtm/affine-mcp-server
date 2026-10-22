@@ -3,7 +3,7 @@ import * as Y from "yjs";
 import { ToolFailure } from "./util/mcp.js";
 
 export type WorkspaceSocket = Socket<any, any>;
-const DEFAULT_WS_CLIENT_VERSION = process.env.AFFINE_WS_CLIENT_VERSION || process.env.AFFINE_CLIENT_VERSION || '0.26.0';
+const DEFAULT_WS_CLIENT_VERSION = process.env.AFFINE_WS_CLIENT_VERSION || process.env.AFFINE_CLIENT_VERSION || '0.27.5';
 const WS_CONNECT_TIMEOUT_MS = Number(process.env.AFFINE_WS_CONNECT_TIMEOUT_MS || 10000);
 const WS_ACK_TIMEOUT_MS = Number(process.env.AFFINE_WS_ACK_TIMEOUT_MS || 10000);
 
@@ -116,13 +116,47 @@ export async function connectWorkspaceSocket(wsUrl: string, cookie?: string, bea
 }
 
 export async function joinWorkspace(socket: WorkspaceSocket, workspaceId: string, clientVersion: string = DEFAULT_WS_CLIENT_VERSION) {
+  // AFFiNE >= 0.27.5 (canary) replaced `space:join` with `space:join-batch` and
+  // rejects clients older than 0.27.5. The legacy event gets no acknowledgement
+  // there, so every WebSocket tool timed out with "space:join timeout".
   return emitWithAck<void>(
     socket,
-    'space:join',
-    { spaceType: 'workspace', spaceId: workspaceId, clientVersion },
+    'space:join-batch',
+    { spaces: [{ spaceType: 'workspace', spaceId: workspaceId }], clientVersion },
     (ack) => {
       const message = ackErrorMessage(ack, "join failed");
       if (message) throw new Error(message);
+      if (ack?.data?.success === false) {
+        throw new Error(`AFFiNE rejected the join (client version ${clientVersion}); set AFFINE_WS_CLIENT_VERSION to >= 0.27.5.`);
+      }
+    },
+  );
+}
+
+export type DocLifecycle = "trash" | "restore" | "delete";
+
+/**
+ * Trash, restore or permanently delete a workspace doc through AFFiNE's
+ * `space:doc-lifecycle` command (0.27.5+). This is the only path that really
+ * removes `workspace_pages`/snapshot rows; raw root-doc edits that trash or
+ * delete are rejected with `doc_lifecycle_requires_command`.
+ * Resolves with `{ rootUpdate, timestamp }`; rejects with a message that
+ * starts with "space:doc-lifecycle timeout" if the server does not know the event.
+ */
+export async function docLifecycle(
+  socket: WorkspaceSocket,
+  workspaceId: string,
+  docId: string,
+  lifecycle: DocLifecycle,
+): Promise<{ rootUpdate?: string; timestamp?: number }> {
+  return emitWithAck(
+    socket,
+    'space:doc-lifecycle',
+    { spaceType: 'workspace', spaceId: workspaceId, docId, lifecycle },
+    (ack) => {
+      const message = ackErrorMessage(ack, `doc-lifecycle ${lifecycle} failed`);
+      if (message) throw new Error(message);
+      return ack?.data ?? {};
     },
   );
 }
