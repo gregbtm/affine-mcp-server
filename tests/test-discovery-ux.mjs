@@ -107,8 +107,14 @@ async function createRealtimeFixture({ workspaceId = "workspace-ux", rootSnapsho
       const data = JSON.parse(packet.slice(dataStart));
       const event = data[0];
       const payload = data[1] || {};
-      if (event === "space:join") {
-        socket.send(`43${ackId}[]`);
+      // Mirrors AFFiNE >= 0.27.5 gateway.ts: `space:join` has no handler (never
+      // acknowledged); `space:join-batch` acks { data: { success } } and rejects
+      // clientVersion < 0.27.5.
+      if (event === "space:join-batch") {
+        const [major, minor, patch] = String(payload.clientVersion || "0.0.0").split(/[.-]/).map((n) => Number(n) || 0);
+        const ok = Array.isArray(payload.spaces) && payload.spaces.length > 0
+          && (major > 0 || minor > 27 || (minor === 27 && patch >= 5));
+        socket.send(`43${ackId}[${JSON.stringify({ data: { clientId: "test", success: ok } })}]`);
         return;
       }
       if (event === "space:push-doc-update") {

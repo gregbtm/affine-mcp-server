@@ -39,7 +39,7 @@ import {
   loadDoc,
   pushDocUpdate,
   pushPageDocUpdate,
-  deleteDoc as wsDeleteDoc,
+  deleteDoc as wsDeleteDoc, docLifecycle, serverUsesBatchSync,
   type WorkspaceSocket,
 } from "../ws.js";
 import * as Y from "yjs";
@@ -868,6 +868,57 @@ export async function deleteDocFromWorkspace(
     });
   }
 
+  // AFFiNE >= 0.27.5: permanent delete is a server-side domain command that
+  // removes the root-doc entry, snapshot, history and workspace_pages row.
+  // Raw root-doc edits that delete are rejected there, so try it first and fall
+  // back to the legacy two-step flow only when the server lacks the event.
+  try {
+    if (!serverUsesBatchSync()) throw new Error("space:doc-lifecycle timeout (server uses the legacy sync protocol)");
+    await docLifecycle(socket, workspaceId, docId, "delete");
+    let absent = false;
+    try {
+      const after = await loadDoc(socket, workspaceId, docId);
+      absent = typeof after.missing !== "string";
+    } catch {
+      absent = false;
+    }
+    return receipt("doc.delete", {
+      status: "deleted",
+      workspaceId,
+      docId,
+      deleted: true,
+      alreadyAbsent: false,
+      metadataExisted,
+      metadataRemoved: metadataExisted,
+      contentExisted,
+      contentDeleted: contentExisted,
+      contentDeleteAcknowledged: true,
+      contentAbsenceVerified: absent,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.startsWith("space:doc-lifecycle timeout")) {
+      return toolError(error, {
+        code: "doc_delete_failed",
+        data: {
+          kind: "doc.delete",
+          status: "failed",
+          workspaceId,
+          docId,
+          deleted: false,
+          alreadyAbsent: false,
+          metadataExisted,
+          metadataRemoved: false,
+          contentExisted,
+          contentDeleted: false,
+          contentDeleteAcknowledged: false,
+          contentAbsenceVerified: false,
+        },
+      });
+    }
+    // Older AFFiNE: no such event. Continue with the legacy flow below.
+  }
+
   let metadataRemoved = false;
   if (metadataExisted && pages) {
     const previousState = Y.encodeStateVector(workspaceDoc);
@@ -1050,7 +1101,20 @@ export async function setDocTrashState(
     ? !previouslyInTrash || page.get("trash") !== true || page.has("inTrash") || !hasCanonicalTrashDate
     : previouslyInTrash || page.has("inTrash") || page.get("trash") === true || page.has("trashDate");
 
+  let usedLifecycle = false;
   if (changed) {
+    try {
+      if (!serverUsesBatchSync()) throw new Error("space:doc-lifecycle timeout (server uses the legacy sync protocol)");
+      await docLifecycle(socket, workspaceId, docId, inTrash ? "trash" : "restore");
+      usedLifecycle = true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.startsWith("space:doc-lifecycle timeout")) throw error;
+      // Older AFFiNE without the event: fall through to the legacy root-doc edit.
+    }
+  }
+
+  if (changed && !usedLifecycle) {
     const previousState = Y.encodeStateVector(workspaceDoc);
     workspaceDoc.transact(() => {
       page.delete("inTrash");

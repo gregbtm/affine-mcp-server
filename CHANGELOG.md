@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.1] - 2026-10-22
+
+### Fixed
+- Works against AFFiNE 0.27.5 and the canary channel. Canary removed the `space:join` WebSocket event, so every tool that opens a workspace socket (documents, tags, collections, folders, databases, properties) failed with `space:join timeout after 10000ms`. The server now joins with `space:join-batch` and client version 0.27.5 (`AFFINE_WS_BATCH_CLIENT_VERSION`). If the server never answers it (0.27.4 and older), the join falls back to `space:join` with `AFFINE_WS_CLIENT_VERSION` and remembers that for the process, so one build serves both stable and canary.
+- `delete_doc`, `trash_doc` and `restore_doc` use AFFiNE's `space:doc-lifecycle` command. On 0.27.5+ this removes the document, its snapshot, history and workspace row; raw root-document edits that trash or delete are rejected there with `doc_lifecycle_requires_command`. When the server does not know the event, the previous flow is used.
+
+### Tests
+- `tests/test-join-protocol.mjs` checks the join against fake canary and stable gateways, the one-time probe, and that a real join error is not retried.
+- The WebSocket mock in `tests/test-discovery-ux.mjs` now mirrors the real gateway: `space:join` is never acknowledged and `space:join-batch` rejects client versions below 0.27.5.
+
 ## [3.11.0] - 2026-10-21
 
 ### Added
@@ -952,6 +962,7 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 - User management
 - Access tokens
 
+[3.11.1]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.11.1
 [3.11.0]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.11.0
 [3.10.2]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v3.10.2
 [3.10.1]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v3.10.1
@@ -1004,4 +1015,4 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 [1.4.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.4.0
 [1.3.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.3.0
 [1.6.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.6.0
-[Unreleased]: https://github.com/gregbtm/affine-mcp-server/compare/v3.11.0...HEAD
+[Unreleased]: https://github.com/gregbtm/affine-mcp-server/compare/v3.11.1...HEAD

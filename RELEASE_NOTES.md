@@ -1,5 +1,17 @@
 # Release Notes
 
+## Version 3.11.1 (2026-10-22)
+
+### Highlights
+- Compatible with AFFiNE 0.27.5 and canary: workspace WebSocket tools no longer time out, and `delete_doc` really deletes.
+
+### What Changed
+- Joins workspaces with `space:join-batch` (client version 0.27.5), falling back to `space:join` when the server does not answer it.
+- `delete_doc`, `trash_doc` and `restore_doc` go through `space:doc-lifecycle`, with the previous flow as a fallback for servers that lack it.
+
+### Compatibility
+- Works on AFFiNE stable (0.27.4) and on 0.27.5/canary. Permanent delete only removes data on 0.27.5+. No tool names or inputs change.
+
 ## Version 3.11.0 (2026-10-21)
 
 ### Highlights
