@@ -39,7 +39,7 @@ import {
   loadDoc,
   pushDocUpdate,
   pushPageDocUpdate,
-  deleteDoc as wsDeleteDoc, docLifecycle,
+  deleteDoc as wsDeleteDoc, docLifecycle, serverUsesBatchSync,
   type WorkspaceSocket,
 } from "../ws.js";
 import * as Y from "yjs";
@@ -873,6 +873,7 @@ export async function deleteDocFromWorkspace(
   // Raw root-doc edits that delete are rejected there, so try it first and fall
   // back to the legacy two-step flow only when the server lacks the event.
   try {
+    if (!serverUsesBatchSync()) throw new Error("space:doc-lifecycle timeout (server uses the legacy sync protocol)");
     await docLifecycle(socket, workspaceId, docId, "delete");
     let absent = false;
     try {
@@ -1103,6 +1104,7 @@ export async function setDocTrashState(
   let usedLifecycle = false;
   if (changed) {
     try {
+      if (!serverUsesBatchSync()) throw new Error("space:doc-lifecycle timeout (server uses the legacy sync protocol)");
       await docLifecycle(socket, workspaceId, docId, inTrash ? "trash" : "restore");
       usedLifecycle = true;
     } catch (error) {

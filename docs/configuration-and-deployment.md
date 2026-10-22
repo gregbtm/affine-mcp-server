@@ -170,6 +170,7 @@ These controls are environment-only and are not read from the saved config file.
 | Variable | Required | Default | Notes |
 | --- | --- | --- | --- |
 | `AFFINE_WS_CLIENT_VERSION` | No | `AFFINE_CLIENT_VERSION` (else `0.26.0`) | Environment-only AFFiNE client version sent during workspace socket connection; falls back to `AFFINE_CLIENT_VERSION` when unset |
+| `AFFINE_WS_BATCH_CLIENT_VERSION` | No | `0.27.5` | Environment-only client version sent with `space:join-batch` on AFFiNE 0.27.5+/canary, which rejects anything lower. Servers that do not answer `space:join-batch` (0.27.4 and older) are joined with `space:join` and `AFFINE_WS_CLIENT_VERSION` instead |
 | `AFFINE_WS_CONNECT_TIMEOUT_MS` | No | `10000` | Environment-only milliseconds to wait for a workspace socket connection |
 | `AFFINE_WS_ACK_TIMEOUT_MS` | No | `10000` | Environment-only milliseconds to wait for a workspace socket acknowledgement |
 

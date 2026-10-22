@@ -3,7 +3,9 @@ import * as Y from "yjs";
 import { ToolFailure } from "./util/mcp.js";
 
 export type WorkspaceSocket = Socket<any, any>;
-const DEFAULT_WS_CLIENT_VERSION = process.env.AFFINE_WS_CLIENT_VERSION || process.env.AFFINE_CLIENT_VERSION || '0.27.5';
+const DEFAULT_WS_CLIENT_VERSION = process.env.AFFINE_WS_CLIENT_VERSION || process.env.AFFINE_CLIENT_VERSION || '0.26.0';
+// `space:join-batch` rejects client versions below 0.27.5, so it has its own default.
+const BATCH_WS_CLIENT_VERSION = process.env.AFFINE_WS_BATCH_CLIENT_VERSION || '0.27.5';
 const WS_CONNECT_TIMEOUT_MS = Number(process.env.AFFINE_WS_CONNECT_TIMEOUT_MS || 10000);
 const WS_ACK_TIMEOUT_MS = Number(process.env.AFFINE_WS_ACK_TIMEOUT_MS || 10000);
 
@@ -115,22 +117,61 @@ export async function connectWorkspaceSocket(wsUrl: string, cookie?: string, bea
   });
 }
 
-export async function joinWorkspace(socket: WorkspaceSocket, workspaceId: string, clientVersion: string = DEFAULT_WS_CLIENT_VERSION) {
-  // AFFiNE >= 0.27.5 (canary) replaced `space:join` with `space:join-batch` and
-  // rejects clients older than 0.27.5. The legacy event gets no acknowledgement
-  // there, so every WebSocket tool timed out with "space:join timeout".
+const BATCH_PROBE_TIMEOUT_MS = 3000;
+let syncProtocol: 'unknown' | 'batch' | 'legacy' = 'unknown';
+
+/** True once a join has shown the server speaks the 0.27.5+ sync protocol. */
+export function serverUsesBatchSync(): boolean {
+  return syncProtocol === 'batch';
+}
+
+/** Test hook: forget what was learned about the server's sync protocol. */
+export function resetSyncProtocolForTests(): void {
+  syncProtocol = 'unknown';
+}
+
+function legacyJoin(socket: WorkspaceSocket, workspaceId: string, clientVersion: string) {
   return emitWithAck<void>(
     socket,
-    'space:join-batch',
-    { spaces: [{ spaceType: 'workspace', spaceId: workspaceId }], clientVersion },
+    'space:join',
+    { spaceType: 'workspace', spaceId: workspaceId, clientVersion },
     (ack) => {
       const message = ackErrorMessage(ack, "join failed");
       if (message) throw new Error(message);
-      if (ack?.data?.success === false) {
-        throw new Error(`AFFiNE rejected the join (client version ${clientVersion}); set AFFINE_WS_CLIENT_VERSION to >= 0.27.5.`);
-      }
     },
   );
+}
+
+/**
+ * Join a workspace. AFFiNE >= 0.27.5 (canary) replaced `space:join` with
+ * `space:join-batch` and gives the old event no acknowledgement, so every
+ * WebSocket tool timed out. Try the new event first; if the server never
+ * answers it (0.27.4 and older), fall back to `space:join`. The outcome is
+ * remembered for the life of the process.
+ */
+export async function joinWorkspace(socket: WorkspaceSocket, workspaceId: string, clientVersion: string = DEFAULT_WS_CLIENT_VERSION) {
+  if (syncProtocol === 'legacy') return legacyJoin(socket, workspaceId, clientVersion);
+  try {
+    await emitWithAck<void>(
+      socket,
+      'space:join-batch',
+      { spaces: [{ spaceType: 'workspace', spaceId: workspaceId }], clientVersion: BATCH_WS_CLIENT_VERSION },
+      (ack) => {
+        const message = ackErrorMessage(ack, "join failed");
+        if (message) throw new Error(message);
+        if (ack?.data?.success === false) {
+          throw new Error(`AFFiNE rejected the join (client version ${BATCH_WS_CLIENT_VERSION}); set AFFINE_WS_BATCH_CLIENT_VERSION to >= 0.27.5.`);
+        }
+      },
+      syncProtocol === 'batch' ? WS_ACK_TIMEOUT_MS : BATCH_PROBE_TIMEOUT_MS,
+    );
+    syncProtocol = 'batch';
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (syncProtocol !== 'unknown' || !message.startsWith('space:join-batch timeout')) throw error;
+    await legacyJoin(socket, workspaceId, clientVersion);
+    syncProtocol = 'legacy';
+  }
 }
 
 export type DocLifecycle = "trash" | "restore" | "delete";
