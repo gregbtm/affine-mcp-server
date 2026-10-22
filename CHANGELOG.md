@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.1] - 2026-10-22
+
+### Fixed
+- Works against AFFiNE 0.27.5 and the canary channel. Canary removed the `space:join` WebSocket event, so every tool that opens a workspace socket (documents, tags, collections, folders, databases, properties) failed with `space:join timeout after 10000ms`. The server now joins with `space:join-batch` and reports client version 0.27.5 (override with `AFFINE_WS_CLIENT_VERSION`); servers older than 0.27.5 are not supported by this release.
+- `delete_doc`, `trash_doc` and `restore_doc` use AFFiNE's `space:doc-lifecycle` command. On 0.27.5+ this removes the document, its snapshot, history and workspace row; raw root-document edits that trash or delete are rejected there with `doc_lifecycle_requires_command`. When the server does not know the event, the previous flow is used.
+
+### Tests
+- The WebSocket mock in `tests/test-discovery-ux.mjs` now mirrors the real gateway: `space:join` is never acknowledged and `space:join-batch` rejects client versions below 0.27.5.
+
 ## [3.11.0] - 2026-10-21
 
 ### Added
@@ -952,6 +961,7 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 - User management
 - Access tokens
 
+[3.11.1]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.11.1
 [3.11.0]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.11.0
 [3.10.2]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v3.10.2
 [3.10.1]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v3.10.1
@@ -1004,4 +1014,4 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 [1.4.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.4.0
 [1.3.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.3.0
 [1.6.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.6.0
-[Unreleased]: https://github.com/gregbtm/affine-mcp-server/compare/v3.11.0...HEAD
+[Unreleased]: https://github.com/gregbtm/affine-mcp-server/compare/v3.11.1...HEAD
