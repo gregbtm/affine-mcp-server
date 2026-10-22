@@ -1,5 +1,16 @@
 # Release Notes
 
+## Version 3.11.2 (2026-10-22)
+
+### Highlights
+- Document reads and writes work on AFFiNE 0.27.5/canary, which needs a per-document join before load and push.
+
+### What Changed
+- Joins each document with `space:join-batch` (including `docId`) before `space:load-doc` and `space:push-doc-update`, once per document per connection. No change on AFFiNE 0.27.4 and older.
+
+### Compatibility
+- No tool names or inputs change. Fixes the `DOCUMENT_CREATE_UNCERTAIN` / "You should join in Space" failures seen with 3.11.1 on canary.
+
 ## Version 3.11.1 (2026-10-22)
 
 ### Highlights

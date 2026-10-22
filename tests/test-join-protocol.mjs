@@ -2,7 +2,7 @@
 // <= 0.27.4 (space:join only). Fake sockets mirror each gateway: an event with
 // no handler is simply never acknowledged.
 import assert from "node:assert/strict";
-import { joinWorkspace, serverUsesBatchSync, resetSyncProtocolForTests } from "../dist/ws.js";
+import { joinWorkspace, loadDoc, pushDocUpdate, serverUsesBatchSync, resetSyncProtocolForTests } from "../dist/ws.js";
 
 process.env.AFFINE_WS_ACK_TIMEOUT_MS ||= "1000";
 
@@ -53,5 +53,41 @@ assert.deepEqual(denied.seen.map((e) => e.event), ["space:join-batch"]);
 resetSyncProtocolForTests();
 const old = fakeSocket({ "space:join-batch": () => ({ data: { clientId: "c", success: false } }) });
 await assert.rejects(() => joinWorkspace(old, "ws-1"), /AFFINE_WS_BATCH_CLIENT_VERSION/);
+
+// 0.27.5+ keeps a per-doc subscription: load-doc / push-doc-update fail with
+// "You should join in Space..." until the socket joined that doc (join-batch with docId).
+resetSyncProtocolForTests();
+const subs = new Set();
+const strict = fakeSocket({
+  "space:join-batch": (p) => {
+    for (const sp of p.spaces) if (sp.docId) subs.add(`${sp.spaceId}/${sp.docId}`);
+    return { data: { clientId: "c", success: true } };
+  },
+  "space:load-doc": (p) => subs.has(`${p.spaceId}/${p.docId}`)
+    ? { data: { missing: "AA==", state: "AA==", timestamp: 1 } }
+    : { error: { name: "NOT_IN_SPACE", message: `You should join in Space ${p.spaceId} before broadcasting messages.` } },
+  "space:push-doc-update": (p) => subs.has(`${p.spaceId}/${p.docId}`)
+    ? { data: { accepted: true, timestamp: 5 } }
+    : { error: { name: "NOT_IN_SPACE", message: `You should join in Space ${p.spaceId} before broadcasting messages.` } },
+});
+await joinWorkspace(strict, "ws-1");
+const loaded = await loadDoc(strict, "ws-1", "docA");
+assert.equal(loaded.timestamp, 1, "loadDoc must join the doc first");
+await pushDocUpdate(strict, "ws-1", "docA", "AAA=");
+await loadDoc(strict, "ws-1", "docA");
+const docJoins = strict.seen.filter((e) => e.event === "space:join-batch" && e.payload.spaces.some((x) => x.docId));
+assert.equal(docJoins.length, 1, "each doc is joined once per socket");
+await loadDoc(strict, "ws-1", "ws-1");
+assert.equal(strict.seen.filter((e) => e.event === "space:join-batch" && e.payload.spaces.some((x) => x.docId)).length, 2);
+
+// a legacy server has no per-doc join step and must never be sent one
+resetSyncProtocolForTests();
+const legacy = fakeSocket({
+  "space:join": () => ({ data: { success: true } }),
+  "space:load-doc": () => ({ data: { missing: "AA==", state: "AA==", timestamp: 1 } }),
+});
+await joinWorkspace(legacy, "ws-1");
+await loadDoc(legacy, "ws-1", "docA");
+assert.equal(legacy.seen.filter((e) => e.event === "space:join-batch" && e.payload.spaces.some((x) => x.docId)).length, 0);
 
 console.log("Join protocol tests passed");
