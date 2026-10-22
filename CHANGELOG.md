@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.2] - 2026-10-22
+
+### Fixed
+- Reading and writing documents on AFFiNE 0.27.5+/canary. 3.11.1 joined the workspace, but canary also keeps a per-document subscription: `space:load-doc` and `space:push-doc-update` failed with "You should join in Space ... before broadcasting messages" (`create_doc_from_markdown` reported `DOCUMENT_CREATE_UNCERTAIN`). The server now joins each document through `space:join-batch` with its `docId` before loading or pushing it, once per document per socket. Servers that use the legacy protocol never receive this step.
+
+### Tests
+- `tests/test-join-protocol.mjs` adds a fake canary gateway that rejects load and push until the doc is joined, and checks that each doc is joined once and that a legacy server is never sent a doc join.
+
 ## [3.11.1] - 2026-10-22
 
 ### Fixed
@@ -962,6 +970,7 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 - User management
 - Access tokens
 
+[3.11.2]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.11.2
 [3.11.1]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.11.1
 [3.11.0]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.11.0
 [3.10.2]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v3.10.2
@@ -1015,4 +1024,4 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 [1.4.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.4.0
 [1.3.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.3.0
 [1.6.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.6.0
-[Unreleased]: https://github.com/gregbtm/affine-mcp-server/compare/v3.11.1...HEAD
+[Unreleased]: https://github.com/gregbtm/affine-mcp-server/compare/v3.11.2...HEAD

@@ -202,9 +202,47 @@ export async function docLifecycle(
   );
 }
 
+const joinedDocs = new WeakMap<object, Set<string>>();
+
+/**
+ * AFFiNE 0.27.5+ tracks a subscription per document: `space:load-doc` and
+ * `space:push-doc-update` answer "You should join in Space ... before
+ * broadcasting messages" until the socket has joined that doc through
+ * `space:join-batch` with a `docId`. Older servers have no such step, so this
+ * is a no-op unless joinWorkspace learned the server speaks the batch protocol.
+ */
+export async function ensureDocJoined(socket: WorkspaceSocket, workspaceId: string, docId: string): Promise<void> {
+  if (!serverUsesBatchSync()) return;
+  let joined = joinedDocs.get(socket);
+  if (!joined) {
+    joined = new Set<string>();
+    joinedDocs.set(socket, joined);
+  }
+  const key = `${workspaceId}/${docId}`;
+  if (joined.has(key)) return;
+  await emitWithAck<void>(
+    socket,
+    'space:join-batch',
+    {
+      spaces: [
+        { spaceType: 'workspace', spaceId: workspaceId },
+        { spaceType: 'workspace', spaceId: workspaceId, docId },
+      ],
+      clientVersion: BATCH_WS_CLIENT_VERSION,
+    },
+    (ack) => {
+      const message = ackErrorMessage(ack, "doc join failed");
+      if (message) throw new Error(message);
+      if (ack?.data?.success === false) throw new Error(`AFFiNE refused to join doc ${docId}.`);
+    },
+  );
+  joined.add(key);
+}
+
 type LoadDocResult = { missing?: string; state?: string; timestamp?: number };
 
 export async function loadDoc(socket: WorkspaceSocket, workspaceId: string, docId: string): Promise<LoadDocResult> {
+  await ensureDocJoined(socket, workspaceId, docId);
   return emitWithAck<LoadDocResult>(
     socket,
     'space:load-doc',
@@ -244,6 +282,7 @@ async function pushDocUpdateRaw(
   docId: string,
   updateBase64: string,
 ): Promise<number> {
+  await ensureDocJoined(socket, workspaceId, docId);
   return emitWithAck<number>(
     socket,
     'space:push-doc-update',
