@@ -5077,6 +5077,38 @@ export function registerDocTools(
     creatorId: string,
   ): Promise<void> {
     const contentUpdateBase64 = Buffer.from(Y.encodeStateAsUpdate(doc)).toString("base64");
+    let metadataUpdateBase64: string | undefined;
+
+    // AFFiNE 0.27.5+ only accepts the first content update for a doc that is
+    // already listed in the workspace root's meta.pages ("doc_not_found"
+    // otherwise), so list it first. Older servers accept content first.
+    const metadataFirst = serverUsesBatchSync();
+    if (metadataFirst) {
+      try {
+        metadataUpdateBase64 = (await buildWorkspacePageMetadataUpdate(
+          socket,
+          workspaceId,
+          docId,
+          title,
+        )) ?? undefined;
+        if (metadataUpdateBase64) {
+          await pushForDocumentCreation(socket, workspaceId, workspaceId, metadataUpdateBase64);
+        }
+      } catch (error) {
+        await reconcileDocumentCreation(socket, {
+          workspaceId,
+          docId,
+          title,
+          contentUpdateBase64,
+          creatorId,
+          metadataUpdateBase64,
+          stage: "metadata",
+          cause: error,
+        });
+        return;
+      }
+    }
+
     try {
       await pushForDocumentCreation(socket, workspaceId, docId, contentUpdateBase64);
     } catch (error) {
@@ -5086,22 +5118,24 @@ export function registerDocTools(
         title,
         contentUpdateBase64,
         creatorId,
+        metadataUpdateBase64,
         stage: "content",
         cause: error,
       });
       return;
     }
 
-    let metadataUpdateBase64: string | undefined;
     try {
-      metadataUpdateBase64 = (await buildWorkspacePageMetadataUpdate(
-        socket,
-        workspaceId,
-        docId,
-        title,
-      )) ?? undefined;
-      if (metadataUpdateBase64) {
-        await pushForDocumentCreation(socket, workspaceId, workspaceId, metadataUpdateBase64);
+      if (!metadataFirst) {
+        metadataUpdateBase64 = (await buildWorkspacePageMetadataUpdate(
+          socket,
+          workspaceId,
+          docId,
+          title,
+        )) ?? undefined;
+        if (metadataUpdateBase64) {
+          await pushForDocumentCreation(socket, workspaceId, workspaceId, metadataUpdateBase64);
+        }
       }
       await ensureDocumentCreator(socket, workspaceId, docId, creatorId, creatorTransport);
     } catch (error) {
