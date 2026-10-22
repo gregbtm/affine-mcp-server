@@ -1,5 +1,16 @@
 # Release Notes
 
+## Version 3.11.3 (2026-10-22)
+
+### Highlights
+- Creating documents works on AFFiNE 0.27.5/canary.
+
+### What Changed
+- New documents are registered in the workspace root before their content is pushed on 0.27.5+ servers, which refuse content for unlisted docs. No change on older servers.
+
+### Compatibility
+- No tool names or inputs change.
+
 ## Version 3.11.2 (2026-10-22)
 
 ### Highlights

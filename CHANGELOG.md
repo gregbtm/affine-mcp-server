@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.3] - 2026-10-22
+
+### Fixed
+- Creating documents on AFFiNE 0.27.5+/canary. The server rejects the first content update for a doc that is not yet listed in the workspace root's `meta.pages` (`doc_not_found`, surfaced as `DOCUMENT_CREATE_UNCERTAIN` / "Failed to store doc updates"). New documents are now listed in the workspace root first and their content is pushed second on those servers. Older servers keep the previous order.
+
 ## [3.11.2] - 2026-10-22
 
 ### Fixed
@@ -970,6 +975,7 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 - User management
 - Access tokens
 
+[3.11.3]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.11.3
 [3.11.2]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.11.2
 [3.11.1]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.11.1
 [3.11.0]: https://github.com/gregbtm/affine-mcp-server/releases/tag/v3.11.0
@@ -1024,4 +1030,4 @@ Document create/edit/delete is now supported. These are synchronized to real AFF
 [1.4.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.4.0
 [1.3.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.3.0
 [1.6.0]: https://github.com/dawncr0w/affine-mcp-server/releases/tag/v1.6.0
-[Unreleased]: https://github.com/gregbtm/affine-mcp-server/compare/v3.11.2...HEAD
+[Unreleased]: https://github.com/gregbtm/affine-mcp-server/compare/v3.11.3...HEAD
